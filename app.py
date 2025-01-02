@@ -1,11 +1,8 @@
 import os
 from flask import Flask, request, jsonify
 from flask_jwt_extended import JWTManager, jwt_required, create_access_token
-from langchain_ollama import OllamaEmbeddings
 from langchain.prompts import ChatPromptTemplate
 from langchain_ollama.chat_models import ChatOllama
-from langchain_community.vectorstores import Chroma
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.runnables import RunnablePassthrough
 from langchain.retrievers.multi_query import MultiQueryRetriever
@@ -13,6 +10,8 @@ from dotenv import load_dotenv  # Import dotenv to load environment variables
 
 from includes.gtt_secured import GTTSecured  # Importing the GTTSecured class
 from includes.gtt_loadpdf import GTTLoadPDFs  # Importing the GTTSecured class
+from includes.gtt_chunck import GTTChunking  # Importing the GTTSecured class
+from includes.gtt_embedding import GTTEmbedding  # Importing the GTTSecured class
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -22,67 +21,12 @@ app = Flask(__name__)
 
 # Flask-JWT setup: Read the secret key from the environment variable
 app.config['JWT_SECRET_KEY'] = os.getenv('JWT_SECRET_KEY')  # Get the secret key from .env file
+# Access the JWT_SECRET_KEY
 jwt = JWTManager(app)
 
 # Initialize variables
 data_array = []
 os.environ["PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION"] = "python"
-
-# Function to interact with the loaded PDFs and generate answers
-def chat_with_pdf(question):
-    # Now split the text into chunks using the RecursiveCharacterTextSplitter
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200)
-    chunks = text_splitter.split_documents(data_array)
-
-    # Create vector database
-    vector_db = Chroma.from_documents(
-        documents=chunks,
-        embedding=OllamaEmbeddings(model="nomic-embed-text"),
-        collection_name="local-rag"
-    )
-    print("Vector database created successfully")
-
-    # Set up LLM and retrieval
-    local_model = "llama3.2"  # or whichever model you prefer
-    llm = ChatOllama(model=local_model)
-
-    # Query prompt template
-    QUERY_PROMPT = ChatPromptTemplate(
-        input_variables=["question"],
-        template="""You are an AI language model assistant. Your task is to generate 2
-        different versions of the given user question to retrieve relevant documents from
-        a vector database. By generating multiple perspectives on the user question, your
-        goal is to help the user overcome some of the limitations of the distance-based
-        similarity search. Provide these alternative questions separated by newlines.
-        Original question: {question}""",
-    )
-
-    # Set up retriever
-    retriever = MultiQueryRetriever.from_llm(
-        vector_db.as_retriever(), 
-        llm,
-        prompt=QUERY_PROMPT
-    )
-
-    # RAG prompt template
-    template = """Answer the question based ONLY on the following context:
-    {context}
-    Question: {question}
-    """
-
-    prompt = ChatPromptTemplate.from_template(template)
-
-    # Create chain
-    chain = (
-        {"context": retriever, "question": RunnablePassthrough()}
-        | prompt
-        | llm
-        | StrOutputParser()
-    )
-
-    # Call the chain to get the answer
-    answer = chain.invoke(question)
-    return answer
 
 @app.route('/login', methods=['GET'])
 def show_login():
@@ -133,12 +77,32 @@ def create_token():
 
 
 @app.route('/refresh-data', methods=['POST'])
-@jwt_required()  # Protect the route with JWT
+#@jwt_required()  # Protect the route with JWT
 def refresh_data():
     try:
         # Load PDFs (once per session or on first request)
-        GTTLoadPDFs.load_pdfs()
     
+        data_array = GTTLoadPDFs.load_pdfs()
+
+        chunks = GTTChunking.chunk_text(data_array)
+
+        # Print out some of the chunks for visualization
+        #for chunk in chunks[:5]:  # Show first 5 chunks
+        #    print(chunk.page_content)
+
+        #print(chunks)
+
+        # Create an Embedder instance
+        embedder = GTTEmbedding()
+
+        embeddings = embedder.create_embeddings(chunks)
+        #for embed in embeddings[:1]:  # Show first 5 chunks
+        #    print(f"Embed: {embed}")
+
+        # Optionally store embeddings in a vector database
+        vector_store = embedder.store_embeddings(embeddings)
+        print(f"Embeddings stored in vector store: {vector_store}")
+
         # If successful, return status 200 with a success message
         return jsonify({"message": "Data refreshed successfully."}), 200
     
@@ -156,14 +120,13 @@ def answer_question():
         return jsonify({"error": "No question parameter provided"}), 400
 
     try:
-        # Load PDFs (once per session or on first request)
-        GTTLoadPDFs.load_pdfs()
 
         # Get the answer from the PDF-based model
-        answer = chat_with_pdf(question)
+       # answer = chat_with_pdf(question)
 
         # Return the answer as a JSON array
-        return jsonify({"answer": [answer]})
+       answer = '';
+       return jsonify({"answer": [answer]})
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500

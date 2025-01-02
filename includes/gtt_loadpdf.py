@@ -2,10 +2,6 @@ import os
 import pdfplumber
 from langchain.schema import Document
 
-import os
-import pdfplumber
-from langchain.schema import Document
-
 class GTTLoadPDFs:
     # Function to load PDFs and process them into documents
     @staticmethod
