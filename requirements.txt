@@ -12,4 +12,4 @@ unstructured[all-docs]
 protobuf
 chromadb
 Pillow
-numpy
+numpypython
