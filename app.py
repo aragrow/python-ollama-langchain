@@ -12,6 +12,7 @@ from includes.gtt_secured import GTTSecured  # Importing the GTTSecured class
 from includes.gtt_loadpdf import GTTLoadPDFs  # Importing the GTTSecured class
 from includes.gtt_chunck import GTTChunking  # Importing the GTTSecured class
 from includes.gtt_embedding import GTTEmbedding  # Importing the GTTSecured class
+from includes.gtt_mongodb import GTTMongoDB  # Importing the GTTMongoDB class
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -99,10 +100,11 @@ def refresh_data():
         #for embed in embeddings[:1]:  # Show first 5 chunks
         #    print(f"Embed: {embed}")
 
-        # Optionally store embeddings in a vector database
-        vector_store = embedder.store_embeddings(embeddings)
-        print(f"Embeddings stored in vector store: {vector_store}")
 
+        mongodb = GTTMongoDB
+        mongodb.connect_to_mongodb()
+        mongodb.insert_bulk_inserts(embeddings)
+    
         # If successful, return status 200 with a success message
         return jsonify({"message": "Data refreshed successfully."}), 200
     
