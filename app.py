@@ -13,6 +13,7 @@ from includes.gtt_loadpdf import GTTLoadPDFs  # Importing the GTTSecured class
 from includes.gtt_chunck import GTTChunking  # Importing the GTTSecured class
 from includes.gtt_embedding import GTTEmbedding  # Importing the GTTSecured class
 from includes.gtt_mongodb import GTTMongoDB  # Importing the GTTMongoDB class
+from includes.gtt_chat_ollama import GTTChatOllama  # Importing the GTTChatOllama class
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -95,14 +96,11 @@ def refresh_data():
 
         # Create an Embedder instance
         embedder = GTTEmbedding()
-
         embeddings = embedder.create_embeddings(chunks)
-        #for embed in embeddings[:1]:  # Show first 5 chunks
-        #    print(f"Embed: {embed}")
 
-
-        mongodb = GTTMongoDB
-        mongodb.connect_to_mongodb()
+        mongodb = GTTMongoDB()
+        mongodb.ensure_database_and_collection_exists()
+        mongodb.create_vector_indexes()
         mongodb.insert_bulk_inserts(embeddings)
     
         # If successful, return status 200 with a success message
@@ -113,25 +111,40 @@ def refresh_data():
 
     return 
 @app.route('/answer-question', methods=['POST'])
-@jwt_required()  # Protect the route with JWT
+#@jwt_required()  # Protect the route with JWT
 def answer_question():
     # Get the 'question' parameter from the query string
-    question = request.args.get('question')
+    question = request.args.get('question').strip()
+    query = question.encode('ascii', 'ignore').decode()
 
     if not question:
         return jsonify({"error": "No question parameter provided"}), 400
 
     try:
+        print(query)
 
-        # Get the answer from the PDF-based model
-       # answer = chat_with_pdf(question)
+        embed = GTTEmbedding()
+        query_embedding = embed.create_embed(query)
+
+        mongodb = GTTMongoDB()
+        context = mongodb.retrieve_similar_embeddings(query_embedding, 5)
 
         # Return the answer as a JSON array
-       answer = '';
-       return jsonify({"answer": [answer]})
+        no0fcandidates = 3
+        conversation_history = []
+        print(f'Context for question: {type(context)}')
+        print(f'Query for question: {type(query)}')
+        print('----------------------------------------------------------')
+              
+        answer = GTTChatOllama.chat_with_ollama(context, query, conversation_history, no0fcandidates)
+
+        return jsonify({"question": query, "answer": [answer]})
     
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+
 
 if __name__ == "__main__":
     # Start the Flask app

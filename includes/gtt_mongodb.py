@@ -13,62 +13,98 @@ class GTTMongoDB:
         """
         Initialize with Ollama Embeddings.
         """
-        self.uri = uri
+        self.db_name = "concussion_vector_db"
+        self.collection_name = "concussion_embeddings"
         self.client = MongoClient(uri)
-        self.db = self.client['vector_db']
-        self.collection = ''
+        self.db = self.client[self.db_name]
+        self.collection = self.db[self.collection_name]  # Create a collection called 'embeddings' 
 
-    def connect_to_mongodb(self):
-        print('Exec: GTTMongoDB.connect_to_mongodb()')
+        # Database and collection names
 
-        # Connect to MongoDB
-        self.collection = self.db['concussion_embeddings']  # Create a collection called 'embeddings'
+    def ensure_database_and_collection_exists(self):
+        """
+        Check if the database and collection exist.
+        If not, create them (MongoDB creates the database and collection implicitly when used).
+        """
+        # Check if database exists
+        if self.db_name in self.client.list_database_names():
+            print(f"Database '{self.db_name}' exists.")
+        else:
+            print(f"Database '{self.db_name}' does not exist. It will be created when we use it.")
+
+        # Check if collection exists
+        if self.collection_name in self.db.list_collection_names():
+            print(f"Collection '{self.collection_name }' exists.")
+        else:
+            print(f"Collection '{self.collection_name }' does not exist. It will be created.")
+            # MongoDB will create the collection when we first insert data into it.
+            # Optionally, you can create it manually if needed (though this is usually not necessary):
+            self.db.create_collection(self.collection_name)
 
 
     def insert_record(self, content, embedding):
         print('Exec: GTTMongoDB.insert_record()')
-
+        """
+        Inserts a new document into the MongoDB collection with content and its corresponding embedding.
+        """
         record = {
-            "_id": ObjectId(),  # Explicitly setting a unique ID (optional, as MongoDB does this by default)
             "content": content,
-            "embedding": embedding.tolist(),  # Convert numpy array to a list
+            "embedding": embedding.tolist(),  # Convert numpy array to list for storage in MongoDB
         }
         self.collection.insert_one(record)
+
         print(f"Inserted record with content: {content[:30]}...")  # Print the first 30 chars of the content for verification 
 
     def insert_bulk_inserts(self, embeddings):
         print('Exec: GTTMongoDB.insert_bulk_inserts()')
+        """
+        Bulk inserts multiple records (content and embeddings) into MongoDB.
+        """
+        for embed in embeddings[:1]:  # Show first 5 chunks
+            print(f"Embed: {embed}")
 
-        # List to hold all the records for bulk insert
-        records = []
+        try:
+            self.collection.delete_many({})
+            records = []
+            
+            for embed in embeddings:
+            
+                record = {
+                    "_id": ObjectId(),
+                    "content": embed['content'],
+                    "embedding": embed['content_embedded'],
+                }
+                records.append(record)
 
-        # Loop through the embeddings list, assuming each item is a tuple (content, embedding)
-        for content, embedding in embeddings:
-            # Create the record for each embedding
-            record = {
-                "_id": ObjectId(),  # Explicitly setting a unique ID (optional, as MongoDB does this by default)
-                "content": content,
-                "embedding": embedding.tolist(),  # Convert numpy array to a list if needed
-            }
-            records.append(record)
-
-        # Insert all records in one go (bulk insert)
-        self.collection.insert_many(records)  # Efficient bulk insert
-        print(f"Inserted {len(records)} records")
+            if records:
+                self.collection.insert_many(records)
+                print(f"Inserted {len(records)} records.")
+            else:
+                print("No records to insert.")
+        except Exception as e:
+            print(f"An error occurred: {e}")
+        finally:
+            # Optionally close the MongoDB connection when done
+            print("Operation completed.")
 
     # Step 3: Create an Index for Cosine Similarity Search
-    def create_vector_index(self):
+    def create_vector_indexes(self):
         print('Exec: GTTMongoDB.create_vector_index()')
+        
+        existing_indexes = self.collection.index_information()
 
-        # Create an index on the 'embedding' field for cosine similarity search
-        # MongoDB does not natively support vector search out of the box.
-        # However, for a simple use case, we can store vectors and later use cosine similarity in application logic.
-        # Alternatively, use MongoDB Atlas Search for more advanced vector search features.
-        # For simplicity, we use 'embedding' as an array and create a simple index here.
+        """
+        Creates the necessary indexes for optimized querying.
+        """
+        # Index for content (optional but useful for text-based queries)
+        if "content_index" not in existing_indexes:
+            self.collection.create_index([("content", ASCENDING)], name="content_index")
 
-        self.collection.create_index([("embedding", "2dsphere")])  # Create geospatial index (a workaround for vector search)
-        print("Created geospatial index on embeddings.")
+        # Index for embedding (useful for efficient retrieval of embeddings, but note MongoDB can't directly compute similarity)
+        if "embedding_index" not in existing_indexes:
+            self.collection.create_index([("embedding", ASCENDING)], name="embedding_index")
 
+        print("Indexes created successfully.")
 
     # Example: Fetch all records from the collection (for testing)
     def fetch_all_records(self):
@@ -77,26 +113,29 @@ class GTTMongoDB:
         for record in self.collection.find():
             print(json.dumps(record, indent=2))
 
-    # Function to fetch all embeddings and compute similarity
-    def find_similar_embeddings(self, query_embedding, top_k=5):
-        # Fetch all records
-        records = self.collection.find()
-        
-        embeddings = []
-        ids = []
-        
-        for record in records:
-            embeddings.append(record['embedding'])
-            ids.append(record['_id'])  # Store the record ID for later reference
-        
-        embeddings = np.array(embeddings)
-        
-        # Compute cosine similarity
-        similarities = cosine_similarity([query_embedding], embeddings)[0]
-        
-        # Sort similarities in descending order and fetch top_k results
-        top_k_indices = similarities.argsort()[-top_k:][::-1]
-        
-        for idx in top_k_indices:
-            print(f"ID: {ids[idx]}, Similarity: {similarities[idx]:.4f}")
-            print(f"Content: {records[idx]['content'][:50]}...")  # Print the first 50 chars of content
+    # Function to calculate cosine similarity between the query embedding and stored embeddings
+    def retrieve_similar_embeddings(self, query_embedding, top_k=5):
+        print('Exec: GTTMongoDB.retrieve_similar_embeddings()')
+        """
+        Retrieves the most similar embeddings from the MongoDB collection based on cosine similarity.
+        """
+        # Retrieve all embeddings from the collection
+        stored_documents = list(self.collection.find({}))
+        stored_embeddings = [np.array(doc['embedding']) for doc in stored_documents]
+
+        # Reshape query_embedding to 2D (1, n_features)
+        query_embedding = np.array(query_embedding).reshape(1, -1)
+
+        # Calculate cosine similarities
+        similarities = cosine_similarity(query_embedding, stored_embeddings)
+
+        # Sort by descending similarity
+        sorted_similarities = np.argsort(similarities[0])[::-1]  # Sort by descending similarity
+
+        # Get top K most similar documents
+        similar_docs = []
+        for i in range(top_k):
+            index = sorted_similarities[i]
+            similar_docs.append(stored_documents[index]['content'])
+
+        return similar_docs
