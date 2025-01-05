@@ -15,6 +15,7 @@ from includes.gtt_embedding import GTTEmbedding  # Importing the GTTSecured clas
 from includes.gtt_mongodb import GTTMongoDB  # Importing the GTTMongoDB class
 from includes.gtt_chat_ollama import GTTChatOllama  # Importing the GTTChatOllama class
 from includes.gtt_get_pdf_from_url import GTTGetPDFFromURLs  # Importing the GTTGetPDFFromURLs class
+from includes.gtt_loadjson import GTTGetJson  # Importing the GTTGetJson class
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -86,8 +87,17 @@ def refresh_data():
         # Load PDFs (once per session or on first request)
     
         data_array = GTTLoadPDFs.load_pdfs()
+       
+        if data_array.get('status') == 'success':
+            pdf_chunks = GTTChunking.chunk_text(data_array)
 
-        chunks = GTTChunking.chunk_text(data_array)
+        data_array = GTTGetJson.load_jsons()
+
+        if(data_array['status'] == 'success'):
+            json_chunks = GTTChunking.chunk_text(data_array)
+
+        # Step 5: Append both PDF chunks and JSON chunks to the chunks array
+        chunks = pdf_chunks + json_chunks  # Combine both lists
 
         # Print out some of the chunks for visualization
         #for chunk in chunks[:5]:  # Show first 5 chunks
