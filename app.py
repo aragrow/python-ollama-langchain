@@ -14,6 +14,7 @@ from includes.gtt_chunck import GTTChunking  # Importing the GTTSecured class
 from includes.gtt_embedding import GTTEmbedding  # Importing the GTTSecured class
 from includes.gtt_mongodb import GTTMongoDB  # Importing the GTTMongoDB class
 from includes.gtt_chat_ollama import GTTChatOllama  # Importing the GTTChatOllama class
+from includes.gtt_get_pdf_from_url import GTTGetPDFFromURLs  # Importing the GTTGetPDFFromURLs class
 
 # Load environment variables from the .env file
 load_dotenv()
@@ -127,7 +128,7 @@ def answer_question():
         query_embedding = embed.create_embed(query)
 
         mongodb = GTTMongoDB()
-        context = mongodb.retrieve_similar_embeddings(query_embedding, 5)
+        context = mongodb.retrieve_similar_embeddings(query_embedding, 10)
 
         # Return the answer as a JSON array
         no0fcandidates = 3
@@ -143,7 +144,20 @@ def answer_question():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+@app.route('/get-pdf-from-url', methods=['POST'])
+#@jwt_required()  # Protect the route with JWT
+def get_pdf_from_url():
+    # Get the 'question' parameter from the query string
 
+    try:
+
+        GTTGetPDFFromURLs.get_pdfs()
+
+        # If successful, return status 200 with a success message
+        return jsonify({"message": "PDF created successfully."}), 200
+    
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 
 if __name__ == "__main__":

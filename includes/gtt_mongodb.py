@@ -64,7 +64,7 @@ class GTTMongoDB:
             print(f"Embed: {embed}")
 
         try:
-            self.collection.delete_many({})
+            #self.collection.delete_many({})
             records = []
             
             for embed in embeddings:
