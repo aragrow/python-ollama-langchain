@@ -1,6 +1,7 @@
 import os
 from langchain_ollama import OllamaEmbeddings
 from langchain.schema import Document
+import sys
 
 class GTTEmbedding:
     def __init__(self):
@@ -24,15 +25,23 @@ class GTTEmbedding:
         # Convert array data to Document format (if using Langchain)
         # Ensure that we are processing only valid strings
         embeddings = []
+        content = ''
 
         for text in chunks:
-                # Ensure that the text is a string and directly use the text (no need for Document wrapping)
-                embedded_content = self.ollama_embeddings.embed_documents([text.page_content])  # Pass a list of strings directly
-            
+
+            for doc in text:  
+
+                if doc.page_content:
+                    # Ensure that the text is a string and directly use the text (no need for Document wrapping)
+                    embedded_content = self.ollama_embeddings.embed_documents(doc.page_content)  # Pass a list of strings directly
+                else:
+                    print('Unable to create embed, no page_content in document')
+                    sys.exit()
+
                 # Append the embedding with content to the list
                 embeddings.append({
-                    'content': text.page_content,
+                    'content': doc.page_content,
                     'content_embedded': embedded_content[0]  # Assuming the result is a list and we want the first embedding
                 })
-   
+                
         return embeddings

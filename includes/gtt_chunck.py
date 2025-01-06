@@ -2,6 +2,7 @@
 import os
 from langchain.schema import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+import sys
 
 class GTTChunking:
     # Function to load PDFs and process them into documents
@@ -12,13 +13,15 @@ class GTTChunking:
         # Extracting the 'page_content' from each document inside the data array
         # Handling case where 'data' key may be a list of documents, and document itself has page content
         documents = []
-        for entry in data_array:
-            if isinstance(entry, dict) and 'data' in entry:
-                for doc in entry['data']:
-                    # Ensure that we only use 'page_content' from the document
-                    if isinstance(doc, Document):
-                        documents.append(doc)
 
+        for doc in data_array:
+            # Ensure that we only use 'page_content' from the document
+            if isinstance(doc, Document):
+                print('Is Document.')
+                documents.append(doc)
+            else:
+                print('Is No document.')
+    
         # Check the length of documents
         print(f"Documents extracted: {len(documents)}")
 

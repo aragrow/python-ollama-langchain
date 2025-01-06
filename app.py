@@ -17,6 +17,9 @@ from includes.gtt_chat_ollama import GTTChatOllama  # Importing the GTTChatOllam
 from includes.gtt_get_pdf_from_url import GTTGetPDFFromURLs  # Importing the GTTGetPDFFromURLs class
 from includes.gtt_loadjson import GTTGetJson  # Importing the GTTGetJson class
 
+import sys
+
+
 # Load environment variables from the .env file
 load_dotenv()
 
@@ -85,23 +88,20 @@ def create_token():
 def refresh_data():
     try:
         # Load PDFs (once per session or on first request)
-    
+        chunks = []
+        
         data_array = GTTLoadPDFs.load_pdfs()
-       
         if data_array.get('status') == 'success':
-            pdf_chunks = GTTChunking.chunk_text(data_array)
+            chunks.append(GTTChunking.chunk_text(data_array['data']))
 
         data_array = GTTGetJson.load_jsons()
-
         if(data_array['status'] == 'success'):
-            json_chunks = GTTChunking.chunk_text(data_array)
+            chunks.append(GTTChunking.chunk_text(data_array['data']))
 
-        # Step 5: Append both PDF chunks and JSON chunks to the chunks array
-        chunks = pdf_chunks + json_chunks  # Combine both lists
-
+ 
         # Print out some of the chunks for visualization
-        #for chunk in chunks[:5]:  # Show first 5 chunks
-        #    print(chunk.page_content)
+        #for chunk in chunks[:1]:  # Show first 5 chunks
+        #    print(chunk)
 
         #print(chunks)
 

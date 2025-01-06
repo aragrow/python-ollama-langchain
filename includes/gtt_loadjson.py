@@ -55,9 +55,6 @@ class GTTGetJson:
             
             # Return the loaded documents and success status
             print(f"---> Total documents loaded: {len(data_array)}")
-            print(type(data_array))
-            # Convert list to dictionary
-
             return {"status": "success", "message": "Data loaded successfully.", "data": data_array}
           
 
