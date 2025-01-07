@@ -22,26 +22,30 @@ class GTTEmbedding:
     def create_embeddings(self, chunks):
         print('Exec: GTTEmbedding.create_embeddings()')
 
-        # Convert array data to Document format (if using Langchain)
-        # Ensure that we are processing only valid strings
-        embeddings = []
-        content = ''
+        try:
+            # Convert array data to Document format (if using Langchain)
+            # Ensure that we are processing only valid strings
+            embeddings = []
+            content = ''
 
-        for text in chunks:
+            for text in chunks:
 
-            for doc in text:  
+                for doc in text:  
 
-                if doc.page_content:
-                    # Ensure that the text is a string and directly use the text (no need for Document wrapping)
-                    embedded_content = self.ollama_embeddings.embed_documents(doc.page_content)  # Pass a list of strings directly
-                else:
-                    print('Unable to create embed, no page_content in document')
-                    sys.exit()
+                    if doc.page_content:
+                        # Ensure that the text is a string and directly use the text (no need for Document wrapping)
+                        embedded_content = self.ollama_embeddings.embed_documents(doc.page_content)  # Pass a list of strings directly
+                    else:
+                        print('Unable to create embed, no page_content in document')
+                        sys.exit()
 
-                # Append the embedding with content to the list
-                embeddings.append({
-                    'content': doc.page_content,
-                    'content_embedded': embedded_content[0]  # Assuming the result is a list and we want the first embedding
-                })
+                    # Append the embedding with content to the list
+                    embeddings.append({
+                        'content': doc.page_content,
+                        'content_embedded': embedded_content[0]  # Assuming the result is a list and we want the first embedding
+                    })
+        except Exception as e:
+            print(f"---> An error occurred: {e}")
+            return {"status": "error", "message": str(e)}
                 
         return embeddings

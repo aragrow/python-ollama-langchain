@@ -37,16 +37,34 @@ class GTTGetJson:
 
                     # Extract the content text (assuming 'content' is a list with one entry)
               
-                    
-                    json_data = content.get("content", [])
+                    if filename.find("_transcript.pdf"):
+                        
+                        for item in json_data:
+                            text = item['text']
 
-                    if json_data:
-                        # Add the content to the data list (appending instead of overwriting)
-                        document = Document(page_content=json_data)
-                        data_array.append(document)
-                        print(f"---> Json loaded successfully: {file_path}")
+                            if text:
+                                # Create a Document object for each text
+                                document = Document(page_content=text)
+                                data_array.append(document)
+                                print(f"---> Json loaded successfully: {file_path}")
+                            else:
+                                print(f"---> No content found in the file: {file_path}")
+                        
+                        #end for
+
                     else:
-                        print(f"---> No content found in the file: {file_path}")
+
+                        json_data = content.get("content", [])
+
+                        if json_data:
+                            # Add the content to the data list (appending instead of overwriting)
+                            document = Document(page_content=json_data)
+                            data_array.append(document)
+                            print(f"---> Json loaded successfully: {file_path}")
+                        else:
+                            print(f"---> No content found in the file: {file_path}")
+
+                    #end if
 
             # Check if we have loaded any documents
             if not data_array:

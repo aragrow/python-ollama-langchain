@@ -6,7 +6,7 @@ from langchain_core.prompts import ChatPromptTemplate
 class GTTChatOllama:
     # Function to load PDFs and process them into documents
     @staticmethod
-    def chat_with_ollama(context: list, query: str, conversation_history: list, top_k: int = 3) -> str:
+    def chat_with_ollama(context: list, query: str, conversation_history: list, top_k: int = 3, max_history_length=5) -> str:
 
         # System prompt to guide the model's behavior
         system_prompt = """
@@ -17,7 +17,7 @@ class GTTChatOllama:
         All responses must be formatted in HTML. Include only the content of the body in the response — no additional commentary.
         """
 
-       # supports many more optional parameters. Hover on your `ChatOllama(...)`
+        # supports many more optional parameters. Hover on your `ChatOllama(...)`
         # class to view the latest available supported parameters
         llm = ChatOllama(model="llama3")
         prompt = ChatPromptTemplate.from_template("{system_prompt} {query} {topic}")
